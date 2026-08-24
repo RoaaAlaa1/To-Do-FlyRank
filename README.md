@@ -1,6 +1,6 @@
 # Task API
 
-A simple in-memory CRUD API for managing tasks, built with FastAPI.
+A simple SQLite-backed CRUD API for managing tasks, built with FastAPI.
 
 ## Setup
 
@@ -15,6 +15,12 @@ uvicorn main:app --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`.
+
+## Week3 3: SQLite Database
+
+The API stores tasks in a local SQLite database named `tasks.db`. The database and `tasks` table are created automatically when the application starts. If the table is empty, the API seeds it with three example tasks.
+
+Tasks persist across application restarts. To reset the sample data, stop the API, delete `tasks.db`, and start the API again.
 
 ## Documentation
 
@@ -41,4 +47,4 @@ curl -X POST "http://127.0.0.1:8000/tasks" \
   -d "{\"title\": \"Learn FastAPI\"}"
 ```
 
-> Tasks are stored in memory and reset whenever the application restarts.
+> The local `tasks.db` file is ignored by Git.
