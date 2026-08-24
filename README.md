@@ -22,6 +22,9 @@ The API stores tasks in a local SQLite database named `tasks.db`. The database a
 
 Tasks persist across application restarts. To reset the sample data, stop the API, delete `tasks.db`, and start the API again.
 
+## Screenshot of the SQLite and query
+![Description of image](images\db_browser.png)
+
 ## Documentation
 
 - Swagger UI: `http://127.0.0.1:8000/docs`
