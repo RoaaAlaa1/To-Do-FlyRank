@@ -1,5 +1,5 @@
 import sqlite3
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Response
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import Optional
@@ -71,6 +71,67 @@ def create_task(payload: TaskCreate):
     conn.close()
     
     return {"id": new_id, "title": clean_title, "done": False}
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    done: Optional[bool] = None
+
+@app.put("/tasks/{task_id}", summary="Update task")
+def update_task(task_id: int, payload: TaskUpdate):
+    if payload.title is None and payload.done is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="At least one field (title or done) must be provided"
+        )
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        
+    new_title = row["title"]
+    new_done = row["done"]
+    
+    if payload.title is not None:
+        if not payload.title.strip():
+            conn.close()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Title cannot be empty"
+            )
+        new_title = payload.title.strip()
+        
+    if payload.done is not None:
+        new_done = 1 if payload.done else 0
+        
+    cursor.execute(
+        "UPDATE tasks SET title = ?, done = ? WHERE id = ?", 
+        (new_title, new_done, task_id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return {"id": task_id, "title": new_title, "done": bool(new_done)}
+
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete task")
+def delete_task(task_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
+    
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+        
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    conn.close()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.get("/")
 def get_root():
