@@ -1,5 +1,5 @@
 import sqlite3
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 
 DB_FILE = "tasks.db"
@@ -60,3 +60,24 @@ def get_root():
 @app.get("/health")
 def get_health():
     return {"status": "ok"}
+
+@app.get("/tasks", summary="List all tasks")
+def get_all_tasks():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, done FROM tasks")
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": row["id"], "title": row["title"], "done": bool(row["done"])} for row in rows]
+
+@app.get("/tasks/{task_id}", summary="Get single task")
+def get_single_task(task_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
