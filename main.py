@@ -1,6 +1,8 @@
 import sqlite3
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
+from typing import Optional
 
 DB_FILE = "tasks.db"
 
@@ -48,6 +50,27 @@ app = FastAPI(
     version="2.0",
     lifespan=lifespan
 )
+
+class TaskCreate(BaseModel):
+    title: Optional[str] = None
+
+@app.post("/tasks", status_code=status.HTTP_201_CREATED, summary="Create task")
+def create_task(payload: TaskCreate):
+    if not payload.title or not payload.title.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Title is required and cannot be empty"
+        )
+    
+    clean_title = payload.title.strip()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (clean_title, 0))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    
+    return {"id": new_id, "title": clean_title, "done": False}
 
 @app.get("/")
 def get_root():
