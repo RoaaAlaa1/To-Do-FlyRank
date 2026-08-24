@@ -1,114 +1,62 @@
-from fastapi import FastAPI, HTTPException, status, Response
-from pydantic import BaseModel
-from typing import Optional
+import sqlite3
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+DB_FILE = "tasks.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Create table if missing
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            done INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    
+    # 2. Seed only if empty
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        cursor.executemany(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            [
+                ("Buy groceries", 0),
+                ("Read a book", 1),
+                ("Write code", 0)
+            ]
+        )
+        conn.commit()
+    conn.close()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 app = FastAPI(
     title="Task API",
-    description="A lightweight in-memory CRUD API for managing tasks.",
-    version="1.0"
+    description="SQLite-backed CRUD API",
+    version="2.0",
+    lifespan=lifespan
 )
 
-tasks = [
-    {"id": 1, "title": "Buy groceries", "done": False},
-    {"id": 2, "title": "Read a book", "done": True},
-    {"id": 3, "title": "Write code", "done": False}
-]
-
-class TaskCreate(BaseModel):
-    title: Optional[str] = None
-
-class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    done: Optional[bool] = None
-
-@app.get("/", summary="Root metadata")
+@app.get("/")
 def get_root():
-    """Returns basic API info and available endpoints."""
     return {
         "name": "Task API",
-        "version": "1.0",
+        "version": "2.0",
         "endpoints": ["/tasks"]
     }
 
-@app.get("/health", summary="Health check")
+@app.get("/health")
 def get_health():
-    """Endpoint for monitoring service status."""
     return {"status": "ok"}
-
-@app.get("/tasks", summary="List all tasks")
-def get_all_tasks():
-    """Fetch all tasks currently stored in memory."""
-    return tasks
-
-@app.get("/tasks/{task_id}", summary="Get single task")
-def get_single_task(task_id: int):
-    """Retrieve a task by its unique numeric ID."""
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
-    raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-
-@app.post("/tasks", status_code=status.HTTP_201_CREATED, summary="Create task")
-def create_task(payload: TaskCreate):
-    """Create a new task with a default done status of false."""
-    if not payload.title or not payload.title.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Title is required and cannot be empty"
-        )
-    
-    next_id = max([t["id"] for t in tasks], default=0) + 1
-    new_task = {
-        "id": next_id,
-        "title": payload.title.strip(),
-        "done": False
-    }
-    tasks.append(new_task)
-    return new_task
-
-@app.put("/tasks/{task_id}", summary="Update task")
-def update_task(task_id: int, payload: TaskUpdate):
-    """Update a task's title and/or completion state."""
-    target_task = None
-    for task in tasks:
-        if task["id"] == task_id:
-            target_task = task
-            break
-            
-    if not target_task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-        
-    if payload.title is None and payload.done is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="At least one field (title or done) must be provided"
-        )
-        
-    if payload.title is not None:
-        if not payload.title.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Title cannot be empty"
-            )
-        target_task["title"] = payload.title.strip()
-        
-    if payload.done is not None:
-        target_task["done"] = payload.done
-        
-    return target_task
-
-@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete task")
-def delete_task(task_id: int):
-    """Remove a task by ID."""
-    global tasks
-    target_task = None
-    for task in tasks:
-        if task["id"] == task_id:
-            target_task = task
-            break
-            
-    if not target_task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-        
-    tasks = [t for t in tasks if t["id"] != task_id]
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
