@@ -50,3 +50,4 @@ def get_root():
 @app.get("/health")
 def get_health():
     return {"status": "ok"}
+
