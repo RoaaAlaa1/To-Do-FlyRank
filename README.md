@@ -16,7 +16,7 @@ uvicorn main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
-## Week3 3: SQLite Database
+## Week 3: SQLite Database
 
 The API stores tasks in a local SQLite database named `tasks.db`. The database and `tasks` table are created automatically when the application starts. If the table is empty, the API seeds it with three example tasks.
 
@@ -24,6 +24,25 @@ Tasks persist across application restarts. To reset the sample data, stop the AP
 
 ## Screenshot of the SQLite and query
 ![Description of image](images\db_browser.png)
+
+## Week 3 : Containerized Stack
+
+Run the full stack (FastAPI + PostgreSQL) with a single command:
+```cp .env.example .env
+docker compose up --build
+```
+- The API runs at http://localhost:8000.
+
+- Stop the containers with docker compose down.
+
+- Tasks persist across restarts via the Docker volume taskdata.
+
+## Environment Variables
+DATABASE_URL: postgresql://postgres:dev@db:5432/tasks (stored in .env, git-ignored).
+
+## PostgreSQL Verification
+![Description of image](images\postgres_db.png)
+
 
 ## Documentation
 
